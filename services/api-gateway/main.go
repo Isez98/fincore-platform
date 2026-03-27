@@ -52,8 +52,10 @@ func writeJSON(w http.ResponseWriter, statusCode int, data any) {
 func main() {
 	r := chi.NewRouter()
 
-	r.Get("/health", healthHandler)
-	r.Get("/accounts", accountsHandler)
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Get("/health", healthHandler)
+		r.Get("/accounts", accountsHandler)
+	})
 
 	log.Println("Listening on port :8000")
 	log.Fatal(http.ListenAndServe(":8000", r))
