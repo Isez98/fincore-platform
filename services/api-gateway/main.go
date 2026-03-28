@@ -1,62 +1,41 @@
 package main
 
 import (
-	"encoding/json"
-	"log"
-	"net/http"
-
-	"github.com/go-chi/chi/v5"
+	"flag"
+	"log/slog"
+	"os"
+	"sync"
 )
 
-type Account struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Balance  float64 `json:"balance"`
-	Currency string  `json:"currency"`
+type config struct {
+	port int
+	env  string
 }
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{
-		"status": "ok",
-	})
-}
-
-func accountsHandler(w http.ResponseWriter, r *http.Request) {
-	accounts := []Account{
-		{
-			ID:       "acc_001",
-			Name:     "Checking Account",
-			Balance:  1250.75,
-			Currency: "USD",
-		},
-		{
-			ID:       "acc_002",
-			Name:     "Savings Account",
-			Balance:  5400.00,
-			Currency: "USD",
-		},
-	}
-
-	writeJSON(w, http.StatusOK, accounts)
-}
-
-func writeJSON(w http.ResponseWriter, statusCode int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		log.Println("error writing JSON response:", err)
-	}
+type application struct {
+	config config
+	logger *slog.Logger
+	wg     sync.WaitGroup
 }
 
 func main() {
-	r := chi.NewRouter()
+	var cfg config
 
-	r.Route("/api/v1", func(r chi.Router) {
-		r.Get("/health", healthHandler)
-		r.Get("/accounts", accountsHandler)
-	})
+	flag.IntVar(&cfg.port, "port", 4000, "API server port")
+	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
+	flag.Parse()
 
-	log.Println("Listening on port :8000")
-	log.Fatal(http.ListenAndServe(":8000", r))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	app := &application{
+		config: cfg,
+		logger: logger,
+	}
+
+	err := app.serve()
+	if err != nil {
+		logger.Error("could not start server", "error", err)
+		os.Exit(1)
+	}
+
 }
